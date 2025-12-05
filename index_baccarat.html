@@ -1,0 +1,1015 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Baccarat Mapper – Standalone (Live Table HUD & Bets)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+  <style>
+    :root{
+      --bg:#0b0f14; --panel:#10161e; --panel2:#0f141b; --text:#e7eef7; --muted:#9bb0c6;
+      --accent:#50e3c2; --danger:#ff6b6b; --warn:#ffc857; --line:#1e2733; --blue:#4aa3ff; --green:#1bd760;
+      --orange:#ffb020; --violet:#b08cff; --cyan:#33d1ff; --yellow:#ffe666;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%; min-height:100vh}
+    body{margin:0; background:var(--bg); color:var(--text); font:14px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;}
+    header{display:flex; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid var(--line);
+      background:linear-gradient(180deg, rgba(255,255,255,.03), transparent); position:sticky; top:0; z-index:3}
+    header h1{font-size:16px; margin:0; font-weight:600}
+    header .tag{padding:4px 8px; border-radius:999px; background:#0e293f; color:#9bd0ff; font-weight:600}
+    main{display:grid; grid-template-columns:360px 1fr; height:calc(100vh - 54px)}
+    aside{background:var(--panel); border-right:1px solid var(--line); padding:12px; overflow:auto}
+    #workspace{position:relative; overflow:hidden; background:var(--panel2)}
+    .group{border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:12px; background:rgba(255,255,255,0.02)}
+    .group h2{margin:0 0 8px 0; font-size:13px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em}
+    .row{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+    button{background:#15202b; color:var(--text); border:1px solid var(--line); padding:8px 10px; border-radius:8px; cursor:pointer; font-weight:600}
+    button:hover{background:#1a2633}
+    button.primary{background:var(--blue); border-color:transparent; color:#031422}
+    button.warn{background:var(--warn); color:#1c1405; border-color:transparent}
+    button.ghost{background:transparent}
+    input[type=file]{display:none}
+    label.file{display:inline-flex; align-items:center; gap:8px; cursor:pointer; border:1px dashed var(--line); padding:10px 12px; border-radius:8px}
+    .pill{padding:2px 6px; border-radius:6px; background:#0b2030; color:#9bd0ff; font-weight:700; font-size:12px}
+    .status{display:flex; gap:8px; align-items:center; color:var(--muted)}
+    .progress{height:8px; background:#0f1620; border-radius:6px; overflow:hidden; border:1px solid var(--line)}
+    .progress > div{height:100%; background:var(--green); width:0%}
+    #canvas{position:absolute; inset:0; width:100%; height:100%; background:#0a0f14; cursor:crosshair}
+    .hint{font-size:12px; color:var(--muted)}
+    .callout{padding:10px 12px; border:1px solid #193144; background:#0d1f2e; border-radius:10px}
+    .sep{height:1px; background:var(--line); margin:8px 0}
+    .small{font-size:12px; color:var(--muted)}
+    .legend{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:6px; font-size:12px; color:var(--muted)}
+    .badge{padding:2px 6px; border-radius:6px; font-weight:700; font-size:11px}
+    .nowrap{white-space:nowrap}
+
+    .b-open{background:#064e3b;color:#6ee7b7}
+    .b-last{background:#78350f;color:#facc15}
+    .b-closed{background:#020617;color:#e5e7eb}
+    .b-player{background:#0f172a;color:#60a5fa}
+    .b-banker{background:#7f1d1d;color:#fecaca}
+    .b-tie{background:#312e81;color:#c4b5fd}
+
+    #canvasLegend{position:absolute; left:6px; top:6px; background:rgba(0,0,0,.45); padding:6px 8px; border-radius:8px; font:12px ui-monospace, Menlo, Consolas, monospace; color:#cbd5e1; z-index:2; pointer-events:none}
+    #canvasLegend .row{display:flex; gap:8px; align-items:center}
+    #canvasLegend .dot{width:10px; height:10px; border-radius:50%}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Baccarat Mapper</h1>
+    <span class="tag">Standalone</span>
+    <span class="small">Client-side • No sandbox • Works in Chrome/Safari</span>
+  </header>
+  <main>
+    <aside>
+      <div class="group">
+        <h2>Read first</h2>
+        <div class="callout small">
+          • Use <b>practice mode</b> or static table screenshots.<br>
+          • Capture <b>full screen</b>, including betting area and HUD banners. Keep identical zoom/window for mapping & runtime.<br>
+          • Hide overlays/popups and keep the command prompt in the same place.
+        </div>
+      </div>
+
+      <div class="group">
+        <h2>Screenshots by HUD state</h2>
+        <div class="row">
+          <span class="badge b-open">OPEN</span>
+          <label class="file"><input id="fileOpen" type="file" accept="image/*"/><span>📤 Upload OPEN ("Place your bets")</span></label>
+        </div>
+        <div class="row">
+          <span class="badge b-last">LAST BETS</span>
+          <label class="file"><input id="fileLast" type="file" accept="image/*"/><span>📤 Upload LAST BETS (countdown)</span></label>
+        </div>
+        <div class="row">
+          <span class="badge b-closed">CLOSED</span>
+          <label class="file"><input id="fileClosed" type="file" accept="image/*"/><span>📤 Upload BETS CLOSED</span></label>
+        </div>
+        <div class="row">
+          <span class="badge b-player">PLAYER WIN</span>
+          <label class="file"><input id="filePlayerWin" type="file" accept="image/*"/><span>📤 Upload PLAYER WINS</span></label>
+        </div>
+        <div class="row">
+          <span class="badge b-banker">BANKER WIN</span>
+          <label class="file"><input id="fileBankerWin" type="file" accept="image/*"/><span>📤 Upload BANKER WINS</span></label>
+        </div>
+        <div class="row">
+          <span class="badge b-tie">TIE WIN</span>
+          <label class="file"><input id="fileTieWin" type="file" accept="image/*"/><span>📤 Upload TIE WINS (optional)</span></label>
+        </div>
+
+        <div class="row">
+          <label class="nowrap" for="activeState">Active State</label>
+          <select id="activeState">
+            <option value="open" selected>OPEN</option>
+            <option value="last_bets">LAST BETS</option>
+            <option value="closed">CLOSED</option>
+            <option value="player_win">PLAYER WIN</option>
+            <option value="banker_win">BANKER WIN</option>
+            <option value="tie_win">TIE WIN</option>
+          </select>
+          <span class="hint">Determines which status banner you map now</span>
+        </div>
+        <div class="row">
+          <label class="nowrap" for="overlayBg">Overlay Background</label>
+          <select id="overlayBg">
+            <option value="active" selected>Active</option>
+            <option value="open">OPEN</option>
+            <option value="last_bets">LAST BETS</option>
+            <option value="closed">CLOSED</option>
+            <option value="player_win">PLAYER WIN</option>
+            <option value="banker_win">BANKER WIN</option>
+            <option value="tie_win">TIE WIN</option>
+          </select>
+          <label class="nowrap" for="overlayMode" style="margin-left:6px">Draw</label>
+          <select id="overlayMode">
+            <option value="active" selected>Active banners only</option>
+            <option value="all">All banners</option>
+          </select>
+        </div>
+        <div class="row">
+          <button id="resetViewBtn" class="ghost">Reset View</button>
+          <button id="zoomOutBtn">Zoom −</button>
+          <button id="zoomInBtn">Zoom +</button>
+          <span class="hint">Zoom & pan (middle/right mouse drag)</span>
+        </div>
+      </div>
+
+      <div class="group" id="rebasePanel">
+        <h2>Rebase / Scaling (export)</h2>
+        <div class="row">
+          <label class="nowrap" for="rebaseToggle">Enable</label>
+          <input id="rebaseToggle" type="checkbox" />
+          <span class="hint">Export in a different coordinate system</span>
+        </div>
+        <div class="row">
+          <label class="nowrap" for="baseWidth">Base W</label>
+          <input id="baseWidth" type="number" min="1" step="1" style="width:110px" placeholder="e.g. 1920" />
+          <label class="nowrap" for="baseHeight">Base H</label>
+          <input id="baseHeight" type="number" min="1" step="1" style="width:110px" placeholder="e.g. 1080" />
+        </div>
+        <div class="row">
+          <label class="nowrap" for="offsetX">Offset X</label>
+          <input id="offsetX" type="number" step="1" style="width:110px" value="0" />
+          <label class="nowrap" for="offsetY">Offset Y</label>
+          <input id="offsetY" type="number" step="1" style="width:110px" value="0" />
+        </div>
+        <div class="row">
+          <label class="nowrap" for="scaleX">Scale X</label>
+          <input id="scaleX" type="number" step="0.0001" style="width:110px" value="1" />
+          <label class="nowrap" for="scaleY">Scale Y</label>
+          <input id="scaleY" type="number" step="0.0001" style="width:110px" value="1" />
+        </div>
+        <div class="row">
+          <button id="autoScaleBtn" class="ghost">Auto-scale from base size</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2>Mapping steps</h2>
+        <div class="status">
+          <span id="stepLabel" class="pill">—</span>
+          <span id="stepHelp" class="small">Upload a screenshot and click to start…</span>
+        </div>
+        <div class="sep"></div>
+        <div class="row">
+          <button id="undoBtn">Undo</button>
+          <button id="skipBtn" class="warn">Skip</button>
+        </div>
+        <div class="sep"></div>
+        <div class="progress"><div id="progressBar"></div></div>
+        <div class="small"><span id="progressText">0 / 0</span> mapped (for this state)</div>
+      </div>
+
+      <div class="group">
+        <h2>Export / Import</h2>
+        <div class="row">
+          <button id="exportJsonBtn" class="primary">Export JSON</button>
+          <button id="openJsonBtn">Open JSON</button>
+        </div>
+        <div class="row">
+          <button id="openOverlayBtn">Open Overlay PNG</button>
+        </div>
+        <div class="row">
+          <label class="file">
+            <input id="importJsonInput" type="file" accept="application/json" />
+            <span>📥 Import JSON</span>
+          </label>
+          <button id="clearAllBtn">Clear</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2>Legend</h2>
+        <div class="legend">
+          <span>• PLAYER / BANKER / TIE main boxes</span>
+          <span>• P/B Pair, Either Pair, Perfect Pairs</span>
+          <span>• Player/Banker bonus (optional)</span>
+          <span>• Chip row (1–5 chips)</span>
+          <span>• Controls: Undo / Rebet / Clear / Confirm</span>
+          <span>• Bead road / Big road regions</span>
+          <span>• Status banners for: Open, Last Bets, Closed</span>
+          <span>• Status banners for: Player / Banker / Tie wins</span>
+        </div>
+      </div>
+    </aside>
+
+    <section id="workspace">
+      <div id="canvasLegend" aria-hidden="true">
+        <div class="row"><div class="dot" style="background:#22c55e"></div><div>OPEN</div></div>
+        <div class="row"><div class="dot" style="background:#eab308"></div><div>LAST BETS</div></div>
+        <div class="row"><div class="dot" style="background:#e5e7eb"></div><div>CLOSED</div></div>
+        <div class="row"><div class="dot" style="background:#3b82f6"></div><div>PLAYER WIN</div></div>
+        <div class="row"><div class="dot" style="background:#ef4444"></div><div>BANKER WIN</div></div>
+        <div class="row"><div class="dot" style="background:#a855f7"></div><div>TIE WIN</div></div>
+      </div>
+      <canvas id="canvas" tabindex="0" aria-label="mapping canvas"></canvas>
+    </section>
+  </main>
+
+<script>
+(() => {
+  // ---------- DOM ----------
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  const zoomInBtn = document.getElementById('zoomInBtn');
+  const zoomOutBtn = document.getElementById('zoomOutBtn');
+  const resetViewBtn = document.getElementById('resetViewBtn');
+
+  const undoBtn = document.getElementById('undoBtn');
+  const skipBtn = document.getElementById('skipBtn');
+  const exportJsonBtn = document.getElementById('exportJsonBtn');
+  const openJsonBtn = document.getElementById('openJsonBtn');
+  const openOverlayBtn = document.getElementById('openOverlayBtn');
+  const importJsonInput = document.getElementById('importJsonInput');
+  const clearAllBtn = document.getElementById('clearAllBtn');
+  const stepLabel = document.getElementById('stepLabel');
+  const stepHelp = document.getElementById('stepHelp');
+  const progressBar = document.getElementById('progressBar');
+  const progressText = document.getElementById('progressText');
+
+  const rebaseToggle = document.getElementById('rebaseToggle');
+  const baseWidthInput = document.getElementById('baseWidth');
+  const baseHeightInput = document.getElementById('baseHeight');
+  const offsetXInput = document.getElementById('offsetX');
+  const offsetYInput = document.getElementById('offsetY');
+  const scaleXInput = document.getElementById('scaleX');
+  const scaleYInput = document.getElementById('scaleY');
+  const autoScaleBtn = document.getElementById('autoScaleBtn');
+
+  const fileOpen = document.getElementById('fileOpen');
+  const fileLast = document.getElementById('fileLast');
+  const fileClosed = document.getElementById('fileClosed');
+  const filePlayerWin = document.getElementById('filePlayerWin');
+  const fileBankerWin = document.getElementById('fileBankerWin');
+  const fileTieWin = document.getElementById('fileTieWin');
+
+  const activeStateSel = document.getElementById('activeState');
+  const overlayBgSel   = document.getElementById('overlayBg');
+  const overlayModeSel = document.getElementById('overlayMode');
+
+  // ---------- State ----------
+  const STATES = ['open','last_bets','closed','player_win','banker_win','tie_win'];
+  const STATE_LABEL = {
+    open:'OPEN',
+    last_bets:'LAST BETS',
+    closed:'CLOSED',
+    player_win:'PLAYER WIN',
+    banker_win:'BANKER WIN',
+    tie_win:'TIE WIN'
+  };
+  const STATE_COLOR = {
+    open:       { stroke:'#22c55e', fill:'rgba(34,197,94,0.18)' },
+    last_bets:  { stroke:'#eab308', fill:'rgba(234,179,8,0.18)' },
+    closed:     { stroke:'#e5e7eb', fill:'rgba(229,231,235,0.18)' },
+    player_win: { stroke:'#3b82f6', fill:'rgba(59,130,246,0.18)' },
+    banker_win: { stroke:'#ef4444', fill:'rgba(239,68,68,0.18)' },
+    tie_win:    { stroke:'#a855f7', fill:'rgba(168,85,247,0.18)' }
+  };
+
+  let currentState = 'open';
+
+  const imagesByState = {
+    open:null, last_bets:null, closed:null,
+    player_win:null, banker_win:null, tie_win:null
+  };
+  const bitmapsByState = {
+    open:null, last_bets:null, closed:null,
+    player_win:null, banker_win:null, tie_win:null
+  };
+
+  // All mapping data (points & regions)
+  let data = {};
+  let history = [];
+
+  // Mapping steps for current state
+  let steps = [];
+  let stepIndex = 0;
+  let pendingRegionFirst = null;
+
+  // Rebase config (single orientation)
+  let rebase = {
+    enabled:false,
+    baseW:0,
+    baseH:0,
+    offX:0,
+    offY:0,
+    scaleX:1,
+    scaleY:1
+  };
+
+  // View transform
+  let view = { scale:1, tx:0, ty:0 };
+  let isPanning = false, panStart = {x:0,y:0}, viewStart = {tx:0,ty:0};
+
+  // Colors
+  const colors = {
+    point:'#50e3c2',
+    region:'#4aa3ff',
+    current:'#ffa657',
+    text:'#e7eef7'
+  };
+
+  // ---------- Rebase helpers ----------
+  function syncRebaseFromUI() {
+    rebase.enabled = !!rebaseToggle.checked;
+    rebase.baseW = parseInt(baseWidthInput.value || '0', 10) || 0;
+    rebase.baseH = parseInt(baseHeightInput.value || '0', 10) || 0;
+    rebase.offX  = parseFloat(offsetXInput.value || '0') || 0;
+    rebase.offY  = parseFloat(offsetYInput.value || '0') || 0;
+    rebase.scaleX = parseFloat(scaleXInput.value || '1') || 1;
+    rebase.scaleY = parseFloat(scaleYInput.value || '1') || 1;
+  }
+
+  function loadRebaseToUI() {
+    rebaseToggle.checked = !!rebase.enabled;
+    baseWidthInput.value  = rebase.baseW || '';
+    baseHeightInput.value = rebase.baseH || '';
+    offsetXInput.value = rebase.offX;
+    offsetYInput.value = rebase.offY;
+    scaleXInput.value  = rebase.scaleX;
+    scaleYInput.value  = rebase.scaleY;
+  }
+
+  function applyRebase(pt) {
+    if (!rebase.enabled) {
+      return { x: Math.round(pt.x), y: Math.round(pt.y) };
+    }
+    return {
+      x: Math.round(pt.x * rebase.scaleX + rebase.offX),
+      y: Math.round(pt.y * rebase.scaleY + rebase.offY)
+    };
+  }
+
+  [rebaseToggle, baseWidthInput, baseHeightInput, offsetXInput, offsetYInput, scaleXInput, scaleYInput]
+    .forEach(el => el && el.addEventListener('input', syncRebaseFromUI));
+
+  autoScaleBtn.addEventListener('click', () => {
+    const img = getBackgroundImageForOverlay();
+    if (!img) { alert('Upload at least one screenshot first.'); return; }
+    const bw = parseInt(baseWidthInput.value || '0', 10) || 0;
+    const bh = parseInt(baseHeightInput.value || '0', 10) || 0;
+    if (!bw || !bh) { alert('Enter Base W/H first.'); return; }
+    scaleXInput.value = (bw / img.width).toFixed(6);
+    scaleYInput.value = (bh / img.height).toFixed(6);
+    syncRebaseFromUI();
+  });
+
+  // ---------- Image loading ----------
+  function bindFileInput(inputEl, stateKey){
+    inputEl.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        let bitmap = null;
+        try { bitmap = window.createImageBitmap ? await createImageBitmap(file) : null; } catch(_) { bitmap = null; }
+        const fr = new FileReader();
+        fr.onload = () => {
+          const im = new Image();
+          im.onload = () => {
+            imagesByState[stateKey] = im;
+            bitmapsByState[stateKey] = bitmap;
+            fitView(); draw();
+          };
+          im.onerror = () => alert('Failed to decode image. Try a different file.');
+          im.src = String(fr.result);
+        };
+        fr.onerror = () => alert('Failed to read image file.');
+        fr.readAsDataURL(file);
+      } catch (err) {
+        alert('Failed to load image: ' + (err && err.message ? err.message : err));
+      }
+    });
+  }
+
+  bindFileInput(fileOpen, 'open');
+  bindFileInput(fileLast, 'last_bets');
+  bindFileInput(fileClosed, 'closed');
+  bindFileInput(filePlayerWin, 'player_win');
+  bindFileInput(fileBankerWin, 'banker_win');
+  bindFileInput(fileTieWin, 'tie_win');
+
+  // ---------- Orientation / background ----------
+  function getBackgroundImageForOverlay() {
+    const choice = overlayBgSel.value === 'active' ? currentState : overlayBgSel.value;
+    return bitmapsByState[choice] || imagesByState[choice] || null;
+  }
+
+  activeStateSel.addEventListener('change', (e) => {
+    currentState = e.target.value;
+    resetSteps();
+    fitView();
+    draw();
+  });
+
+  overlayBgSel.addEventListener('change', () => { fitView(); draw(); });
+  overlayModeSel.addEventListener('change', () => draw());
+
+  // ---------- Steps ----------
+  function buildSteps(state) {
+    const s = [];
+    const label = STATE_LABEL[state];
+
+    // Calibration
+    s.push({
+      key:'calib_bets_bbox',
+      label:'Calibration: Betting area bbox',
+      type:'region',
+      help:'Drag tight around Player/Banker/Tie and chips row.'
+    });
+
+    // Main bets
+    s.push({ key:'bet_player_main', label:'bet: PLAYER main', type:'point', help:'Center of PLAYER main box.' });
+    s.push({ key:'bet_banker_main', label:'bet: BANKER main', type:'point', help:'Center of BANKER main box.' });
+    s.push({ key:'bet_tie_main',    label:'bet: TIE main',    type:'point', help:'Center of TIE box.' });
+
+    // Side bets
+    s.push({ key:'bet_player_pair',   label:'bet: PLAYER PAIR',   type:'point', help:'Center of P PAIR.' });
+    s.push({ key:'bet_banker_pair',   label:'bet: BANKER PAIR',   type:'point', help:'Center of B PAIR.' });
+    s.push({ key:'bet_either_pair',   label:'bet: EITHER PAIR',   type:'point', help:'Center of Either Pair.' });
+    s.push({ key:'bet_perfect_pairs', label:'bet: PERFECT PAIRS', type:'point', help:'Center of Perfect Pairs.' });
+    s.push({ key:'bet_p_bonus',       label:'bet: P BONUS',       type:'point', help:'Center of P Bonus (if exists).' });
+    s.push({ key:'bet_b_bonus',       label:'bet: B BONUS',       type:'point', help:'Center of B Bonus (if exists).' });
+
+    // Chips row
+    s.push({ key:'chip_1', label:'Chip 1 (base)', type:'point', help:'Your base chip (e.g. 100).' });
+    s.push({ key:'chip_2', label:'Chip 2', type:'point' });
+    s.push({ key:'chip_3', label:'Chip 3', type:'point' });
+    s.push({ key:'chip_4', label:'Chip 4 (optional)', type:'point' });
+    s.push({ key:'chip_5', label:'Chip 5 (optional)', type:'point' });
+
+    // Controls
+    s.push({ key:'btn_undo',   label:'Control: UNDO',   type:'point' });
+    s.push({ key:'btn_rebet',  label:'Control: REBET',  type:'point' });
+    s.push({ key:'btn_clear',  label:'Control: CLEAR',  type:'point' });
+    s.push({ key:'btn_confirm',label:'Control: CONFIRM / DEAL (optional)', type:'point' });
+
+    // Roads
+    s.push({ key:'road_bead_bbox', label:'Bead road bbox (small grid, optional)', type:'region' });
+    s.push({ key:'road_big_bbox',  label:'Big road bbox (main P/B grid, optional)', type:'region' });
+    s.push({ key:'road_peek_cell', label:'Big road peek cell (latest circle, optional)', type:'point' });
+
+    // Status for this HUD state
+    s.push({
+      key:`status_box__${state}`,
+      label:`${label}: status banner box`,
+      type:'region',
+      help:`Drag tight around the "${label}" banner.`
+    });
+    s.push({
+      key:`status_sample__${state}`,
+      label:`${label}: sample point`,
+      type:'point',
+      help:'Click a solid color area of the banner (no text).'
+    });
+
+    // Optional screen calibration
+    s.push({
+      key:'calib_screen_bbox',
+      label:'(Optional) Screen viewport bbox',
+      type:'region',
+      help:'Around the whole game viewport (without browser UI).'
+    });
+
+    return s;
+  }
+
+  function resetSteps() {
+    steps = buildSteps(currentState);
+    const firstIncomplete = steps.findIndex(st => !data[st.key] || data[st.key].skipped);
+    stepIndex = Math.max(0, firstIncomplete === -1 ? 0 : firstIncomplete);
+    updateUI();
+    draw();
+  }
+
+  function updateUI() {
+    const total = steps.length;
+    const done = steps.filter(st => (data[st.key] && !data[st.key].skipped)).length;
+    const st = steps[stepIndex];
+    stepLabel.textContent = st ? st.label : 'Finished';
+    if (st) {
+      const baseHelp = st.type === 'point'
+        ? 'POINT: click the precise spot. '
+        : 'REGION: two clicks (Top-Left, Bottom-Right). ';
+      stepHelp.textContent = baseHelp + (st.help ? `• ${st.help}` : '');
+    } else {
+      stepHelp.textContent = 'All steps for this state are complete.';
+    }
+    progressBar.style.width = total ? `${Math.round(done/total*100)}%` : '0%';
+    progressText.textContent = `${done} / ${total}`;
+  }
+
+  function goToNextStep() {
+    for (let i = stepIndex + 1; i < steps.length; i++) {
+      const k = steps[i].key;
+      if (!data[k] || data[k].skipped) {
+        stepIndex = i;
+        updateUI();
+        return;
+      }
+    }
+    for (let i = 0; i < steps.length; i++) {
+      const k = steps[i].key;
+      if (!data[k] || data[k].skipped) {
+        stepIndex = i;
+        updateUI();
+        return;
+      }
+    }
+    stepIndex = steps.length;
+    updateUI();
+  }
+
+  function setData(key, value) {
+    const prev = data[key];
+    data[key] = value;
+    history.push({ key, prevValue: prev, nextValue: value });
+    updateUI();
+    draw();
+  }
+
+  function skipCurrent() {
+    const st = steps[stepIndex];
+    if (!st) return;
+    setData(st.key, { skipped:true, type:st.type });
+    pendingRegionFirst = null;
+    goToNextStep();
+  }
+
+  // ---------- Canvas helpers ----------
+  function resizeCanvasToDisplaySize() {
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const rect = canvas.getBoundingClientRect();
+    const width = Math.max(1, Math.floor(rect.width * dpr));
+    const height = Math.max(1, Math.floor(rect.height * dpr));
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+  }
+
+  function canvasToImage(x, y) {
+    return {
+      x: (x - view.tx) / view.scale,
+      y: (y - view.ty) / view.scale
+    };
+  }
+
+  function clampToImage(pt) {
+    const base = getBackgroundImageForOverlay();
+    if (!base) return pt;
+    return {
+      x: Math.max(0, Math.min(base.width, pt.x)),
+      y: Math.max(0, Math.min(base.height, pt.y))
+    };
+  }
+
+  function drawCrosshair(g, x, y, col) {
+    const s = 8 / view.scale;
+    g.save();
+    g.strokeStyle = col;
+    g.beginPath();
+    g.moveTo(x - s, y); g.lineTo(x + s, y);
+    g.moveTo(x, y - s); g.lineTo(x, y + s);
+    g.stroke();
+    g.restore();
+  }
+
+  function draw() {
+    resizeCanvasToDisplaySize();
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.clearRect(0,0,canvas.width, canvas.height);
+    ctx.fillStyle = '#0a0f14';
+    ctx.fillRect(0,0,canvas.width, canvas.height);
+
+    const base = getBackgroundImageForOverlay();
+    document.getElementById('canvasLegend').style.display = base ? 'block' : 'none';
+
+    if (!base) {
+      ctx.font = '14px ui-monospace, Menlo, Consolas, monospace';
+      ctx.fillStyle = '#9bb0c6';
+      ctx.fillText('Upload at least one HUD screenshot to start mapping.', 16, 24);
+      return;
+    }
+
+    ctx.setTransform(view.scale, 0, 0, view.scale, view.tx, view.ty);
+    ctx.drawImage(base, 0, 0);
+
+    drawOverlay(ctx);
+
+    const st = steps[stepIndex];
+    if (st && st.type === 'region' && pendingRegionFirst) {
+      ctx.save();
+      ctx.globalAlpha = 0.7;
+      ctx.strokeStyle = colors.current;
+      ctx.setLineDash([8,6]);
+      drawCrosshair(ctx, pendingRegionFirst.x, pendingRegionFirst.y, colors.current);
+      ctx.restore();
+    }
+  }
+
+  function drawOverlay(g) {
+    const sc = view.scale;
+    g.lineWidth = 2 / sc;
+    g.font = `${12 / sc}px ui-monospace, Menlo, Consolas, monospace`;
+    g.textBaseline = 'top';
+
+    // Shared mapping (bets, chips, controls, roads, calibration)
+    for (const [key, val] of Object.entries(data)) {
+      if (!val || val.skipped) continue;
+      if (key.startsWith('status_box__') || key.startsWith('status_sample__')) continue;
+
+      if (val.type === 'point') {
+        g.fillStyle = colors.point;
+        g.strokeStyle = 'black';
+        g.beginPath();
+        g.arc(val.x, val.y, 7 / sc, 0, Math.PI * 2);
+        g.fill();
+        g.stroke();
+      } else if (val.type === 'region') {
+        const {x1,y1,x2,y2} = val;
+        const w = x2 - x1, h = y2 - y1;
+        g.strokeStyle = colors.region;
+        g.setLineDash([]);
+        g.strokeRect(x1, y1, w, h);
+        g.fillStyle = 'rgba(74,163,255,0.12)';
+        g.fillRect(x1, y1, w, h);
+      }
+    }
+
+    // Status banners per state
+    const mode = overlayModeSel.value;
+    for (const s of STATES) {
+      if (mode === 'active' && s !== currentState) continue;
+      drawStatusForState(g, s);
+    }
+  }
+
+  function drawStatusForState(g, state) {
+    const col = STATE_COLOR[state];
+    const boxKey = `status_box__${state}`;
+    const sampleKey = `status_sample__${state}`;
+
+    const box = data[boxKey];
+    const sample = data[sampleKey];
+
+    if (box && box.type === 'region') {
+      const {x1,y1,x2,y2} = box;
+      const w = x2 - x1, h = y2 - y1;
+      g.save();
+      g.setLineDash([]);
+      g.strokeStyle = col.stroke;
+      g.strokeRect(x1,y1,w,h);
+      g.fillStyle = col.fill;
+      g.fillRect(x1,y1,w,h);
+      g.fillStyle = '#e5e7eb';
+      g.fillText(STATE_LABEL[state], x1 + 4 / view.scale, y1 + 4 / view.scale);
+      g.restore();
+    }
+
+    if (sample && sample.type === 'point') {
+      g.save();
+      g.fillStyle = col.stroke;
+      g.beginPath();
+      g.arc(sample.x, sample.y, 6 / view.scale, 0, Math.PI * 2);
+      g.fill();
+      g.restore();
+    }
+  }
+
+  function fitView() {
+    resizeCanvasToDisplaySize();
+    const base = getBackgroundImageForOverlay();
+    if (!base) return;
+    const cw = canvas.width, ch = canvas.height;
+    const sx = cw / base.width, sy = ch / base.height;
+    const scale = Math.min(sx, sy) * 0.96;
+    const imgW = base.width * scale, imgH = base.height * scale;
+    view.scale = scale;
+    view.tx = (cw - imgW) / 2;
+    view.ty = (ch - imgH) / 2;
+  }
+
+  window.addEventListener('resize', () => {
+    resizeCanvasToDisplaySize();
+    fitView();
+    draw();
+  });
+
+  // ---------- Mouse events ----------
+  canvas.addEventListener('mousedown', (e) => {
+    const base = getBackgroundImageForOverlay();
+    if (!base) return;
+
+    if (e.button === 1 || e.button === 2 || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) {
+      isPanning = true;
+      panStart = { x:e.clientX, y:e.clientY };
+      viewStart = { tx:view.tx, ty:view.ty };
+      return;
+    }
+
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const cx = (e.clientX - rect.left) * dpr;
+    const cy = (e.clientY - rect.top) * dpr;
+    const { x, y } = clampToImage(canvasToImage(cx, cy));
+    const st = steps[stepIndex];
+    if (!st) return;
+
+    if (st.type === 'point') {
+      setData(st.key, { type:'point', x, y });
+      goToNextStep();
+    } else if (st.type === 'region') {
+      if (!pendingRegionFirst) {
+        pendingRegionFirst = { x, y };
+      } else {
+        const x1 = Math.min(pendingRegionFirst.x, x);
+        const y1 = Math.min(pendingRegionFirst.y, y);
+        const x2 = Math.max(pendingRegionFirst.x, x);
+        const y2 = Math.max(pendingRegionFirst.y, y);
+        if (Math.abs(x2-x1) < 2 || Math.abs(y2-y1) < 2) {
+          pendingRegionFirst = null;
+          draw();
+          return;
+        }
+        setData(st.key, { type:'region', x1, y1, x2, y2 });
+        pendingRegionFirst = null;
+        goToNextStep();
+      }
+    }
+    draw();
+  });
+
+  canvas.addEventListener('mousemove', (e) => {
+    if (!isPanning) return;
+    const dpr = window.devicePixelRatio || 1;
+    const dx = (e.clientX - panStart.x) * dpr;
+    const dy = (e.clientY - panStart.y) * dpr;
+    view.tx = viewStart.tx + dx;
+    view.ty = viewStart.ty + dy;
+    draw();
+  });
+
+  window.addEventListener('mouseup', () => { isPanning = false; });
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  const zoomAt = (factor) => {
+    const base = getBackgroundImageForOverlay();
+    if (!base) return;
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const before = canvasToImage(cx, cy);
+    view.scale = Math.max(0.1, Math.min(10, view.scale * factor));
+    const after = canvasToImage(cx, cy);
+    view.tx += (after.x - before.x) * view.scale;
+    view.ty += (after.y - before.y) * view.scale;
+    draw();
+  };
+
+  zoomInBtn.addEventListener('click', () => zoomAt(1.15));
+  zoomOutBtn.addEventListener('click', () => zoomAt(1/1.15));
+  resetViewBtn.addEventListener('click', () => { fitView(); draw(); });
+
+  // ---------- Buttons ----------
+  undoBtn.addEventListener('click', () => {
+    const last = history.pop();
+    if (!last) return;
+    if (last.prevValue === undefined) delete data[last.key];
+    else data[last.key] = last.prevValue;
+    const idx = steps.findIndex(s => s.key === last.key);
+    if (idx >= 0) stepIndex = idx;
+    pendingRegionFirst = null;
+    updateUI();
+    draw();
+  });
+
+  skipBtn.addEventListener('click', () => skipCurrent());
+
+  clearAllBtn.addEventListener('click', (e) => {
+    const alsoImages = e.shiftKey;
+    data = {};
+    history = [];
+    pendingRegionFirst = null;
+    if (alsoImages) {
+      for (const s of STATES) {
+        imagesByState[s] = null;
+        bitmapsByState[s] = null;
+      }
+    }
+    resetSteps();
+    draw();
+  });
+
+  // ---------- Export / Import ----------
+  function getAnyImageSize() {
+    for (const s of STATES) {
+      const im = imagesByState[s];
+      if (im) return [im.width, im.height];
+    }
+    return [0,0];
+  }
+
+  function pickPoint(v) {
+    if (!(v && v.type === 'point')) return [];
+    const t = applyRebase({ x:v.x, y:v.y });
+    return [t.x, t.y];
+  }
+
+  function pickRegion(v) {
+    if (!(v && v.type === 'region')) return null;
+    const p1 = applyRebase({ x:v.x1, y:v.y1 });
+    const p2 = applyRebase({ x:v.x2, y:v.y2 });
+    return { x1:p1.x, y1:p1.y, x2:p2.x, y2:p2.y };
+  }
+
+  function buildExportPayload() {
+    const imageSize = getAnyImageSize();
+    const payload = {
+      tool: 'baccarat-mapper-standalone',
+      version: 1,
+      layout: 'standard',
+      meta: {
+        timestamp: new Date().toISOString(),
+        orientation: 'landscape',
+        image_size_mapped: imageSize,
+        calibration: {
+          bets_bbox: pickRegion(data['calib_bets_bbox']),
+          screen_bbox: pickRegion(data['calib_screen_bbox'])
+        },
+        rebase: {
+          enabled: rebase.enabled,
+          base_width: rebase.baseW,
+          base_height: rebase.baseH,
+          offset: [rebase.offX, rebase.offY],
+          scale: [rebase.scaleX, rebase.scaleY]
+        }
+      },
+      bets: {
+        player_main: pickPoint(data['bet_player_main']),
+        banker_main: pickPoint(data['bet_banker_main']),
+        tie_main:    pickPoint(data['bet_tie_main']),
+        player_pair: pickPoint(data['bet_player_pair']),
+        banker_pair: pickPoint(data['bet_banker_pair']),
+        either_pair: pickPoint(data['bet_either_pair']),
+        perfect_pairs: pickPoint(data['bet_perfect_pairs']),
+        p_bonus: pickPoint(data['bet_p_bonus']),
+        b_bonus: pickPoint(data['bet_b_bonus'])
+      },
+      chips: {
+        chip_1: pickPoint(data['chip_1']),
+        chip_2: pickPoint(data['chip_2']),
+        chip_3: pickPoint(data['chip_3']),
+        chip_4: pickPoint(data['chip_4']),
+        chip_5: pickPoint(data['chip_5'])
+      },
+      controls: {
+        undo:   pickPoint(data['btn_undo']),
+        rebet:  pickPoint(data['btn_rebet']),
+        clear:  pickPoint(data['btn_clear']),
+        confirm:pickPoint(data['btn_confirm']),
+        bets_bbox: pickRegion(data['calib_bets_bbox']),
+        screen_bbox: pickRegion(data['calib_screen_bbox'])
+      },
+      roads: {
+        bead_bbox: pickRegion(data['road_bead_bbox']),
+        big_road_bbox: pickRegion(data['road_big_bbox']),
+        peek_cell: pickPoint(data['road_peek_cell'])
+      },
+      status_states: {},
+      points_raw: data
+    };
+
+    for (const s of STATES) {
+      payload.status_states[s] = {
+        banner_box: pickRegion(data[`status_box__${s}`]),
+        sample_point: pickPoint(data[`status_sample__${s}`])
+      };
+    }
+
+    return payload;
+  }
+
+  function downloadJSON(obj, filename) {
+    const blob = new Blob([JSON.stringify(obj, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/[&<>'"]/g, c => ({
+      '&':'&amp;',
+      '<':'&lt;',
+      '>':'&gt;',
+      "'":'&#39;',
+      '"':'&quot;'
+    }[c]));
+  }
+
+  exportJsonBtn.addEventListener('click', () => {
+    const payload = buildExportPayload();
+    downloadJSON(payload, 'baccarat-mapping.json');
+  });
+
+  openJsonBtn.addEventListener('click', () => {
+    const payload = buildExportPayload();
+    const w = window.open();
+    w.document.write(
+      '<pre style="white-space:pre-wrap;word-break:break-word;font:12px ui-monospace,Menlo,Consolas,monospace;padding:12px;background:#0b0f14;color:#e7eef7;">' +
+      escapeHtml(JSON.stringify(payload, null, 2)) +
+      '</pre>'
+    );
+    w.document.close();
+  });
+
+  openOverlayBtn.addEventListener('click', () => {
+    const base = getBackgroundImageForOverlay();
+    if (!base) { alert('Upload at least one HUD screenshot.'); return; }
+    const off = document.createElement('canvas');
+    off.width = base.width;
+    off.height = base.height;
+    const octx = off.getContext('2d');
+    octx.drawImage(base, 0, 0);
+
+    const bakView = { ...view };
+    view = { scale:1, tx:0, ty:0 };
+    drawOverlay(octx);
+    view = bakView;
+
+    const dataURL = off.toDataURL('image/png');
+    const w = window.open();
+    w.document.write('<img src="' + dataURL + '" style="max-width:100%;">');
+    w.document.close();
+  });
+
+  importJsonInput.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const payload = JSON.parse(text);
+      if (!(payload && (payload.points_raw || payload.points))) {
+        alert('JSON does not look like a baccarat-mapping file.');
+        return;
+      }
+      data = payload.points_raw || payload.points || {};
+      if (payload.meta && payload.meta.rebase) {
+        rebase.enabled = !!payload.meta.rebase.enabled;
+        rebase.baseW = Number(payload.meta.rebase.base_width) || 0;
+        rebase.baseH = Number(payload.meta.rebase.base_height) || 0;
+        const off = payload.meta.rebase.offset || [0,0];
+        const sc  = payload.meta.rebase.scale || [1,1];
+        rebase.offX = Number(off[0]) || 0;
+        rebase.offY = Number(off[1]) || 0;
+        rebase.scaleX = Number(sc[0]) || 1;
+        rebase.scaleY = Number(sc[1]) || 1;
+        loadRebaseToUI();
+      }
+      history = [];
+      resetSteps();
+      draw();
+      alert('Mapping JSON imported.');
+    } catch (err) {
+      alert('Failed to parse JSON: ' + (err && err.message ? err.message : err));
+    }
+  });
+
+  // ---------- Init ----------
+  function initialBind() {
+    resizeCanvasToDisplaySize();
+    loadRebaseToUI();
+    resetSteps();
+    fitView();
+    draw();
+  }
+
+  initialBind();
+})();
+</script>
+</body>
+</html>
