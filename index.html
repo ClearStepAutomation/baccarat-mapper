@@ -86,17 +86,35 @@
           <span class="badge b-closed">CLOSED</span>
           <label class="file"><input id="fileClosed" type="file" accept="image/*"/><span>📤 Upload BETS CLOSED</span></label>
         </div>
+
+        <div class="sep"></div>
+        <div class="small"><b>RESULT banners – no money</b></div>
+        <div class="row">
+          <span class="badge b-player">PLAYER</span>
+          <label class="file"><input id="filePlayer" type="file" accept="image/*"/><span>📤 Upload PLAYER result (no win text)</span></label>
+        </div>
+        <div class="row">
+          <span class="badge b-banker">BANKER</span>
+          <label class="file"><input id="fileBanker" type="file" accept="image/*"/><span>📤 Upload BANKER result (no win text)</span></label>
+        </div>
+        <div class="row">
+          <span class="badge b-tie">TIE</span>
+          <label class="file"><input id="fileTie" type="file" accept="image/*"/><span>📤 Upload TIE result (no win text)</span></label>
+        </div>
+
+        <div class="sep"></div>
+        <div class="small"><b>RESULT banners – with winnings</b></div>
         <div class="row">
           <span class="badge b-player">PLAYER WIN</span>
-          <label class="file"><input id="filePlayerWin" type="file" accept="image/*"/><span>📤 Upload PLAYER WINS</span></label>
+          <label class="file"><input id="filePlayerWin" type="file" accept="image/*"/><span>📤 Upload PLAYER WIN (you won money)</span></label>
         </div>
         <div class="row">
           <span class="badge b-banker">BANKER WIN</span>
-          <label class="file"><input id="fileBankerWin" type="file" accept="image/*"/><span>📤 Upload BANKER WINS</span></label>
+          <label class="file"><input id="fileBankerWin" type="file" accept="image/*"/><span>📤 Upload BANKER WIN (you won money)</span></label>
         </div>
         <div class="row">
           <span class="badge b-tie">TIE WIN</span>
-          <label class="file"><input id="fileTieWin" type="file" accept="image/*"/><span>📤 Upload TIE WINS (optional)</span></label>
+          <label class="file"><input id="fileTieWin" type="file" accept="image/*"/><span>📤 Upload TIE WIN (optional)</span></label>
         </div>
 
         <div class="row">
@@ -105,11 +123,14 @@
             <option value="open" selected>OPEN</option>
             <option value="last_bets">LAST BETS</option>
             <option value="closed">CLOSED</option>
+            <option value="player">PLAYER (no money)</option>
+            <option value="banker">BANKER (no money)</option>
+            <option value="tie">TIE (no money)</option>
             <option value="player_win">PLAYER WIN</option>
             <option value="banker_win">BANKER WIN</option>
             <option value="tie_win">TIE WIN</option>
           </select>
-          <span class="hint">Determines which status banner you map now</span>
+          <span class="hint">Which banner you map now</span>
         </div>
         <div class="row">
           <label class="nowrap" for="overlayBg">Overlay Background</label>
@@ -118,6 +139,9 @@
             <option value="open">OPEN</option>
             <option value="last_bets">LAST BETS</option>
             <option value="closed">CLOSED</option>
+            <option value="player">PLAYER</option>
+            <option value="banker">BANKER</option>
+            <option value="tie">TIE</option>
             <option value="player_win">PLAYER WIN</option>
             <option value="banker_win">BANKER WIN</option>
             <option value="tie_win">TIE WIN</option>
@@ -209,8 +233,8 @@
           <span>• Chip row (1–5 chips)</span>
           <span>• Controls: Undo / Rebet / Clear / Confirm</span>
           <span>• Bead road / Big road regions</span>
-          <span>• Status banners for: Open, Last Bets, Closed</span>
-          <span>• Status banners for: Player / Banker / Tie wins</span>
+          <span>• Status banners: Open / Last / Closed</span>
+          <span>• Status banners: Player/Banker/Tie (lose & win)</span>
         </div>
       </div>
     </aside>
@@ -220,9 +244,12 @@
         <div class="row"><div class="dot" style="background:#22c55e"></div><div>OPEN</div></div>
         <div class="row"><div class="dot" style="background:#eab308"></div><div>LAST BETS</div></div>
         <div class="row"><div class="dot" style="background:#e5e7eb"></div><div>CLOSED</div></div>
-        <div class="row"><div class="dot" style="background:#3b82f6"></div><div>PLAYER WIN</div></div>
-        <div class="row"><div class="dot" style="background:#ef4444"></div><div>BANKER WIN</div></div>
-        <div class="row"><div class="dot" style="background:#a855f7"></div><div>TIE WIN</div></div>
+        <div class="row"><div class="dot" style="background:#3b82f6"></div><div>PLAYER</div></div>
+        <div class="row"><div class="dot" style="background:#f97373"></div><div>BANKER</div></div>
+        <div class="row"><div class="dot" style="background:#a855f7"></div><div>TIE</div></div>
+        <div class="row"><div class="dot" style="background:#1d4ed8"></div><div>PLAYER WIN</div></div>
+        <div class="row"><div class="dot" style="background:#b91c1c"></div><div>BANKER WIN</div></div>
+        <div class="row"><div class="dot" style="background:#7c3aed"></div><div>TIE WIN</div></div>
       </div>
       <canvas id="canvas" tabindex="0" aria-label="mapping canvas"></canvas>
     </section>
@@ -262,6 +289,9 @@
   const fileOpen = document.getElementById('fileOpen');
   const fileLast = document.getElementById('fileLast');
   const fileClosed = document.getElementById('fileClosed');
+  const filePlayer = document.getElementById('filePlayer');
+  const fileBanker = document.getElementById('fileBanker');
+  const fileTie = document.getElementById('fileTie');
   const filePlayerWin = document.getElementById('filePlayerWin');
   const fileBankerWin = document.getElementById('fileBankerWin');
   const fileTieWin = document.getElementById('fileTieWin');
@@ -271,32 +301,46 @@
   const overlayModeSel = document.getElementById('overlayMode');
 
   // ---------- State ----------
-  const STATES = ['open','last_bets','closed','player_win','banker_win','tie_win'];
+  const STATES = [
+    'open','last_bets','closed',
+    'player','banker','tie',
+    'player_win','banker_win','tie_win'
+  ];
+
   const STATE_LABEL = {
     open:'OPEN',
     last_bets:'LAST BETS',
     closed:'CLOSED',
+    player:'PLAYER',
+    banker:'BANKER',
+    tie:'TIE',
     player_win:'PLAYER WIN',
     banker_win:'BANKER WIN',
     tie_win:'TIE WIN'
   };
+
   const STATE_COLOR = {
     open:       { stroke:'#22c55e', fill:'rgba(34,197,94,0.18)' },
     last_bets:  { stroke:'#eab308', fill:'rgba(234,179,8,0.18)' },
     closed:     { stroke:'#e5e7eb', fill:'rgba(229,231,235,0.18)' },
-    player_win: { stroke:'#3b82f6', fill:'rgba(59,130,246,0.18)' },
-    banker_win: { stroke:'#ef4444', fill:'rgba(239,68,68,0.18)' },
-    tie_win:    { stroke:'#a855f7', fill:'rgba(168,85,247,0.18)' }
+    player:     { stroke:'#3b82f6', fill:'rgba(59,130,246,0.18)' },
+    banker:     { stroke:'#f97373', fill:'rgba(249,115,115,0.18)' },
+    tie:        { stroke:'#a855f7', fill:'rgba(168,85,247,0.18)' },
+    player_win: { stroke:'#1d4ed8', fill:'rgba(37,99,235,0.18)' },
+    banker_win: { stroke:'#b91c1c', fill:'rgba(185,28,28,0.18)' },
+    tie_win:    { stroke:'#7c3aed', fill:'rgba(124,58,237,0.18)' }
   };
 
   let currentState = 'open';
 
   const imagesByState = {
     open:null, last_bets:null, closed:null,
+    player:null, banker:null, tie:null,
     player_win:null, banker_win:null, tie_win:null
   };
   const bitmapsByState = {
     open:null, last_bets:null, closed:null,
+    player:null, banker:null, tie:null,
     player_win:null, banker_win:null, tie_win:null
   };
 
@@ -309,7 +353,7 @@
   let stepIndex = 0;
   let pendingRegionFirst = null;
 
-  // Rebase config (single orientation)
+  // Rebase config
   let rebase = {
     enabled:false,
     baseW:0,
@@ -324,7 +368,6 @@
   let view = { scale:1, tx:0, ty:0 };
   let isPanning = false, panStart = {x:0,y:0}, viewStart = {tx:0,ty:0};
 
-  // Colors
   const colors = {
     point:'#50e3c2',
     region:'#4aa3ff',
@@ -407,6 +450,9 @@
   bindFileInput(fileOpen, 'open');
   bindFileInput(fileLast, 'last_bets');
   bindFileInput(fileClosed, 'closed');
+  bindFileInput(filePlayer, 'player');
+  bindFileInput(fileBanker, 'banker');
+  bindFileInput(fileTie, 'tie');
   bindFileInput(filePlayerWin, 'player_win');
   bindFileInput(fileBankerWin, 'banker_win');
   bindFileInput(fileTieWin, 'tie_win');
@@ -432,46 +478,72 @@
     const s = [];
     const label = STATE_LABEL[state];
 
-    // Calibration
-    s.push({
-      key:'calib_bets_bbox',
-      label:'Calibration: Betting area bbox',
-      type:'region',
-      help:'Drag tight around Player/Banker/Tie and chips row.'
-    });
+    // For OPEN we map everything (bets/chips/controls/roads + its banner)
+    if (state === 'open') {
+      s.push({
+        key:'calib_bets_bbox',
+        label:'Calibration: Betting area bbox',
+        type:'region',
+        help:'Drag tight around Player/Banker/Tie and chips row.'
+      });
 
-    // Main bets
-    s.push({ key:'bet_player_main', label:'bet: PLAYER main', type:'point', help:'Center of PLAYER main box.' });
-    s.push({ key:'bet_banker_main', label:'bet: BANKER main', type:'point', help:'Center of BANKER main box.' });
-    s.push({ key:'bet_tie_main',    label:'bet: TIE main',    type:'point', help:'Center of TIE box.' });
+      // Main bets
+      s.push({ key:'bet_player_main', label:'bet: PLAYER main', type:'point', help:'Center of PLAYER main box.' });
+      s.push({ key:'bet_banker_main', label:'bet: BANKER main', type:'point', help:'Center of BANKER main box.' });
+      s.push({ key:'bet_tie_main',    label:'bet: TIE main',    type:'point', help:'Center of TIE box.' });
 
-    // Side bets
-    s.push({ key:'bet_player_pair',   label:'bet: PLAYER PAIR',   type:'point', help:'Center of P PAIR.' });
-    s.push({ key:'bet_banker_pair',   label:'bet: BANKER PAIR',   type:'point', help:'Center of B PAIR.' });
-    s.push({ key:'bet_either_pair',   label:'bet: EITHER PAIR',   type:'point', help:'Center of Either Pair.' });
-    s.push({ key:'bet_perfect_pairs', label:'bet: PERFECT PAIRS', type:'point', help:'Center of Perfect Pairs.' });
-    s.push({ key:'bet_p_bonus',       label:'bet: P BONUS',       type:'point', help:'Center of P Bonus (if exists).' });
-    s.push({ key:'bet_b_bonus',       label:'bet: B BONUS',       type:'point', help:'Center of B Bonus (if exists).' });
+      // Side bets
+      s.push({ key:'bet_player_pair',   label:'bet: PLAYER PAIR',   type:'point', help:'Center of P PAIR.' });
+      s.push({ key:'bet_banker_pair',   label:'bet: BANKER PAIR',   type:'point', help:'Center of B PAIR.' });
+      s.push({ key:'bet_either_pair',   label:'bet: EITHER PAIR',   type:'point', help:'Center of Either Pair.' });
+      s.push({ key:'bet_perfect_pairs', label:'bet: PERFECT PAIRS', type:'point', help:'Center of Perfect Pairs.' });
+      s.push({ key:'bet_p_bonus',       label:'bet: P BONUS',       type:'point', help:'Center of P Bonus (if exists).' });
+      s.push({ key:'bet_b_bonus',       label:'bet: B BONUS',       type:'point', help:'Center of B Bonus (if exists).' });
 
-    // Chips row
-    s.push({ key:'chip_1', label:'Chip 1 (base)', type:'point', help:'Your base chip (e.g. 100).' });
-    s.push({ key:'chip_2', label:'Chip 2', type:'point' });
-    s.push({ key:'chip_3', label:'Chip 3', type:'point' });
-    s.push({ key:'chip_4', label:'Chip 4 (optional)', type:'point' });
-    s.push({ key:'chip_5', label:'Chip 5 (optional)', type:'point' });
+      // Chips row
+      s.push({ key:'chip_1', label:'Chip 1 (base)', type:'point', help:'Your base chip (e.g. 100).' });
+      s.push({ key:'chip_2', label:'Chip 2', type:'point' });
+      s.push({ key:'chip_3', label:'Chip 3', type:'point' });
+      s.push({ key:'chip_4', label:'Chip 4 (optional)', type:'point' });
+      s.push({ key:'chip_5', label:'Chip 5 (optional)', type:'point' });
 
-    // Controls
-    s.push({ key:'btn_undo',   label:'Control: UNDO',   type:'point' });
-    s.push({ key:'btn_rebet',  label:'Control: REBET',  type:'point' });
-    s.push({ key:'btn_clear',  label:'Control: CLEAR',  type:'point' });
-    s.push({ key:'btn_confirm',label:'Control: CONFIRM / DEAL (optional)', type:'point' });
+      // Controls
+      s.push({ key:'btn_undo',   label:'Control: UNDO',   type:'point' });
+      s.push({ key:'btn_rebet',  label:'Control: REBET',  type:'point' });
+      s.push({ key:'btn_clear',  label:'Control: CLEAR',  type:'point' });
+      s.push({ key:'btn_confirm',label:'Control: CONFIRM / DEAL (optional)', type:'point' });
 
-    // Roads
-    s.push({ key:'road_bead_bbox', label:'Bead road bbox (small grid, optional)', type:'region' });
-    s.push({ key:'road_big_bbox',  label:'Big road bbox (main P/B grid, optional)', type:'region' });
-    s.push({ key:'road_peek_cell', label:'Big road peek cell (latest circle, optional)', type:'point' });
+      // Roads
+      s.push({ key:'road_bead_bbox', label:'Bead road bbox (small grid, optional)', type:'region' });
+      s.push({ key:'road_big_bbox',  label:'Big road bbox (main P/B grid, optional)', type:'region' });
+      s.push({ key:'road_peek_cell', label:'Big road peek cell (latest circle, optional)', type:'point' });
 
-    // Status for this HUD state
+      // OPEN banner
+      s.push({
+        key:`status_box__${state}`,
+        label:`${label}: status banner box`,
+        type:'region',
+        help:`Drag tight around the "${label}" banner.`
+      });
+      s.push({
+        key:`status_sample__${state}`,
+        label:`${label}: sample point`,
+        type:'point',
+        help:'Click a solid color area of the banner (no text).'
+      });
+
+      // Optional screen calibration
+      s.push({
+        key:'calib_screen_bbox',
+        label:'(Optional) Screen viewport bbox',
+        type:'region',
+        help:'Around the whole game viewport (without browser UI).'
+      });
+
+      return s;
+    }
+
+    // For all other states: just banner box + sample point
     s.push({
       key:`status_box__${state}`,
       label:`${label}: status banner box`,
@@ -483,14 +555,6 @@
       label:`${label}: sample point`,
       type:'point',
       help:'Click a solid color area of the banner (no text).'
-    });
-
-    // Optional screen calibration
-    s.push({
-      key:'calib_screen_bbox',
-      label:'(Optional) Screen viewport bbox',
-      type:'region',
-      help:'Around the whole game viewport (without browser UI).'
     });
 
     return s;
